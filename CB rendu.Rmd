@@ -1,0 +1,271 @@
+---
+title: "Challenge B R"
+author: "Maylis Dauxois, Camille Quideau"
+date: "08/12/2017"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## TASK 1B ##
+
+#Step 1 
+
+ML technique choosen : Random Forest. What is it ?
+	
+Random Forest is a machine learning (an algorithm), for classification and regression. In this library, there are many classes, which represent many « trees » in this « forest ». We can extract trees from the « forest » to regress our model (here we want to predict house prices in Ames, so we want to regress the price according to many different variables).
+
+We can make a classification or a regression with randomForest.
+Here, we will do a regression.
+
+For this : we can add, substract, combine, … trees to an ensemble, to see if a class is significant or not in our regression or predictionN.
+In fact : we can make a prediction of test data using random forest, that is what we want to do : Predicting house prices in Ames.
+The prediction will depend on which class we add or substract from our model.
+
+
+#Step 2 :  For this step, we will make a linear regression of the training data, using random Forest.
+
+```{r tidyverse, echo = TRUE}
+library(tidyverse)
+library(randomForest)
+library(readr)
+```
+
+We import Dataset from CSV an choose « train.csv »
+
+```{r traindata, echo=TRUE}
+set.seed(1)
+train <- read_csv("~/rprog/Challenge A /data/raw-data/train.csv")
+train
+```
+
+We can have a look on the dataset, running the command and change all character as factors.
+
+```{r train1, echo=TRUE}
+dim(train)
+colnames(train)
+sapply(train,class)
+head(train)
+```
+
+```{r train2, echo=TRUE}
+train[sapply(train,is.character)]<-lapply(train[sapply(train,is.character)], as.factor)
+```
+
+We substract all missing values (NA) using summarise and filter functions
+
+```{r remove var train, echo=TRUE}
+remove.vars <- train %>% summarise_all(.funs = funs(sum(is.na(.)))) %>% gather(key = "feature", value = "missing.observations") %>% filter(missing.observations > 100) %>% select(feature) %>% unlist
+train <- train %>% select(-one_of(remove.vars))
+train %>% summarise_all(.funs = funs(sum(is.na(.)))) %>% gather(key = "feature", value = "missing.observations") %>% filter(missing.observations > 0)
+train <- train %>% filter(is.na(GarageType) == FALSE, is.na(MasVnrType) == FALSE, is.na(BsmtFinType2) == FALSE, is.na(BsmtExposure) == FALSE, is.na(Electrical) == FALSE)
+train %>% summarise_all(.funs = funs(sum(is.na(.)))) %>% gather(key = "feature", value = "missing.observations") %>% filter(missing.observations > 0)
+```
+
+We, now, have no NA in our dataset.
+
+```{r fit, echo=TRUE}
+fit <-randomForest(as.factor(SalePrice) ~ MSZoning+LotArea+Neighborhood+OverallQual+YearBuilt+YearRemodAdd,data=train,importance=TRUE,ntree=10)
+```
+
+#Step 3 : We import dataset test and select only important parameters and subset them. Then we will substract all the missing values
+
+```{r test, echo=TRUE}
+library(readr)
+test <- read_csv("~/rprog/Challenge A /data/raw-data/test.csv")
+test[sapply(test, is.character)] <- lapply(test[sapply(test, is.character)], as.factor)
+sapply(test,class)
+```
+
+```{r test2, echo=TRUE}
+test[sapply(test,is.character)]<-lapply(test[sapply(test,is.character)], as.factor)
+```
+
+```{r testSubset, include = FALSE}
+TestSubset <- subset(test, select = c("Id","MSZoning","LotArea","Neighborhood","OverallQual","YearBuilt","YearRemodAdd"))
+summary(TestSubset)
+dim(TestSubset)
+sapply(TestSubset,levels)
+DataTest <- TestSubset
+dim(DataTest)
+```
+
+```{r remove var test, echo=TRUE}
+remove.vars <- test %>% summarise_all(.funs = funs(sum(is.na(.)))) %>% gather(key = "feature", value = "missing.observations") %>% filter(missing.observations > 100) %>% select(feature) %>% unlist
+test <- test %>% select(-one_of(remove.vars))
+test %>% summarise_all(.funs = funs(sum(is.na(.)))) %>% gather(key = "feature", value = "missing.observations") %>% filter(missing.observations > 0)
+test <- test %>% filter(is.na(GarageType) == FALSE, is.na(MasVnrType) == FALSE, is.na(BsmtFinType2) == FALSE, is.na(BsmtExposure) == FALSE, is.na(Electrical) == FALSE)
+test %>% summarise_all(.funs = funs(sum(is.na(.)))) %>% gather(key = "feature", value = "missing.observations") %>% filter(missing.observations > 0)
+```
+
+
+```{r modeltask1, echo=TRUE}
+model<-lm(SalePrice~MSZoning+LotArea+Neighborhood+OverallQual+YearBuilt+YearRemodAdd,data=train, na.action (na.omit (train)))
+```
+
+Make prediction of the model created using model (linear regression)
+
+```{r predictions model task1, echo=TRUE}
+prediction <- data.frame(Id = test$Id, SalePrice_predict = predict(model, test, type="response"))
+summary(prediction)
+```
+
+For the linear regression, we obtain the min, median, max, … 
+
+Prediction of a linear regression using random forest
+
+```{r model2, echo=TRUE}
+Prediction2 <- (predict(fit, test, type="response"))
+summary(Prediction2)
+```
+## With the ML technique of random forests we have categorical values, for example 4 houses have a price of 165 000 dollars, whereas with the linear regression we have continuous values with a price mean of houses in Ames, Iowa of 184 100 dollars. 
+
+## Task 2B ##
+We copy the code we used in Task 2A in challenge A. 
+
+```{r step3, echo = TRUE, include = FALSE}
+rm(list = ls())
+# Simulating an overfit
+library(tidyverse)
+library(np)
+library(caret)
+# True model : y = x^3 + epsilon
+set.seed(1) # very important for replication
+Nsim <- 150 # Nsim = number of simulations
+b <- c(0,1) #
+x0 <- rep(1, Nsim) 
+x1 <- rnorm(n = Nsim) # x1 is x from the question, I draw here a vector of size Nsim of x from a normal N(0,1)
+
+X <- cbind(x0, x1^3) # this is X such that y = Xb + epsilon, so X = 0 + x^3 = x0 + x1^3 
+# x0 is a vector of 0, x1 is a random vector of size Nsim drawn from normal N(0,1)
+y.true <- X %*% b
+
+eps <- rnorm(n = Nsim) # draw a vector of size Nsim from normal N(0,1), this is epsilon
+y <- X %*% b + eps # the simulated y is then computed following the true model
+
+df <- tbl_df(y[,1]) %>% rename(y = value) %>% bind_cols(tbl_df(x1)) %>% rename(x = value) %>% bind_cols(tbl_df(y.true[,1])) %>% rename(y.true = value) # the previous y and x are matrix and vector, I transform them into a dataframe to use the tidyverse
+```
+
+```{r overfit-step6-sol, echo = TRUE, include = FALSE}
+class(y)
+training.index <- createDataPartition(y = y, times = 1, p = 0.8) #index of the rows I want to keep
+df <- df %>% mutate(which.data = ifelse(1:n() %in% training.index$Resample1, "training", "test")) # I create a new column in df (thus the function mutate) that is categorical and is equal to training if the index of the row (i compute through 1:n()) is in the vector training.index; remember training.index contains the number of the rows that are randomly selected into the training set.
+
+training <- df %>% filter(which.data == "training") #here i subset the table into a training sub-table and a test sub-table
+test <- df %>% filter(which.data == "test")
+```
+
+```{r overfit-step7-sol, echo = TRUE, include = FALSE}
+# Train linear model y ~ x on training
+lm.fit <- lm(y ~ x, data = training) #regress y on x only on training data
+summary(lm.fit)
+```
+
+```{r overfit-step8-sol, echo = TRUE, include = FALSE}
+training <- training %>% mutate(y.lm = predict(object = lm.fit))
+```
+
+
+#Step 1 - Estimate a low-flexibility local linear model on the training data. For that, you can use function npreg the package np. Choose ll for the method (local linear), and a bandwidth of 0.5; Call this model ll.fit.lowflex
+
+
+``` {r low-flexibility linear model, include = TRUE, include = TRUE}
+library(np)
+ll.fit.lowflex <- npreg (y ~ x, bws = 0.5, data = training, regtype = "ll")
+summary(ll.fit.lowflex)
+```
+
+#Step 2 - Estimate a high-flexibility local linear model on the training data. For that, you can use function npreg the package np. Choose ll for the method (local linear), and a bandwidth of 0.01; Call this model ll.fit.highflex
+
+``` {r high-flexibility linear model, include = TRUE}
+ll.fit.highflex <- npreg (y ~ x, bws = 0.01, data = training, regtype = "ll")
+summary(ll.fit.highflex)
+```
+
+#Step 3 - Plot the scatterplot of x-y, along with the predictions of ll.fit.lowflex and ll.fit.highflex, on only the training data. See Figure 1.
+
+``` {r plot training, include = TRUE}
+training <- training %>% mutate(y.ll = predict(object = ll.fit.highflex))
+training <- training %>% mutate(y.lll = predict(object = ll.fit.lowflex))
+ggplot(training) + ggtitle("Figure 1: Step 3 - Predictions of ll.fit.lowflex and ll.fit.highflex on training data") + geom_point(mapping = aes(x = x, y = y)) + 
+  geom_line(mapping = aes(x = x, y = y.true)) + 
+  geom_line(mapping = aes(x = x, y = y.ll), color = "blue") +
+  geom_line(mapping = aes(x = x, y = y.lll), color = "red")
+```
+
+
+
+
+
+#Step 4 - Between the two models, which predictions are more variable? Which predictions have the least bias?
+
+``` {r step 4, include = TRUE}
+
+summary (training)
+
+```
+
+The predictions of the high flexibility linear model are the more variable ones, the predictions with this model have the least bias because the difference between the scatterpoints and the regression are minimized by the bigger variation of the regression.
+
+
+#Step 5 - Plot the scatterplot of x-y, along with the predictions of ll.fit.lowflex and ll.fit.highflex now using the test data. Which predictions are more variable? What happened to the bias of the least biased model?
+
+``` {r plot on data test, include = TRUE}
+test <- test %>% mutate(y.ll.lowflex = predict(object = ll.fit.lowflex, newdata = test), y.ll.highflex = predict(object = ll.fit.highflex, newdata = test))
+
+ggplot(test) + geom_point(mapping = aes(x = x, y = y)) + 
+  geom_line(mapping = aes(x = x, y = y.true))+
+  geom_line(data=test, aes(x=x, y=y.ll.highflex), col="blue")+
+  geom_line(data=test, aes(x=x, y=y.ll.lowflex), col="red")+
+  ggtitle("Predictions of ll.fit.lowflex and ll.fit.highflex on test data")
+
+summary(test)
+```
+The predictions of the high flexibility linear model are the more variable ones. The bias disapeared in the least biased model which is the high flexibility model. 
+
+#Step 6 - Create a vector of bandwidth going from 0.01 to 0.5 with a step of 0.001
+
+``` {r vector bandwidth, include = TRUE}
+bdw <- seq(0.01, 0.5, by = 0.001)
+```
+
+#Step 7 - Estimate a local linear model y ~ x on the training data with each bandwidth.
+
+``` {r linear model with each bandwith, include = TRUE}
+ll.fit.flex <- lapply(X = bdw, FUN = function(bdw) {npreg(y~x, data =training, method = "ll", bws = bdw)})
+```
+
+#Step 8 - Compute for each bandwidth the MSE on the training data.
+
+``` {r MSE on training data, include = TRUE}
+mse.training <- function(fit.model){
+  predictions <- predict(object = fit.model, newdata = training)
+  training %>% mutate(squared.error = (y - predictions)^2) %>% summarize(mse = mean(squared.error))
+}
+mse.training.results <- unlist(lapply(X = ll.fit.flex, FUN = mse.training))
+mse.training.results
+```
+
+#Step 9 - Compute for each bandwidth the MSE on the test data.
+
+``` {r MSE on test data, include = TRUE}
+mse.test <- function(fit.model){
+  predictions <- predict(object = fit.model, newdata = test)
+  test %>% mutate(squared.error = (y - predictions)^2) %>% summarize(mse = mean(squared.error))
+}
+mse.test.results <- unlist(lapply(X = ll.fit.flex, FUN = mse.test))
+mse.test.results
+```
+
+#Step 10 - Draw on the same plot how the MSE on training data, and test data, change when the bandwidth increases. Conclude.
+
+``` {r plot, include = TRUE}
+mse.df <- tbl_df(data.frame(bandwidth = bdw, mse.train = mse.training.results, mse.test = mse.test.results))
+mse.df
+
+ggplot(mse.df) + ggtitle("Figure 3: Step 10 - Change in the MSE on training and test datasets") +  
+  geom_line(mapping = aes(x = bdw, y = mse.train), color = "blue") +
+  geom_line(mapping = aes(x = bdw, y = mse.test), color = "orange")
+```
